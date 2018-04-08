@@ -1,0 +1,24 @@
+---
+title: "Insert Title"
+author: "Insert Names"
+date: "Spring 2018"
+output: html_document
+urlcolor: blue
+---
+
+```{r setup, include=FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Final Project
+
+```{r}
+library(readr)
+election_integrity <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
+voter_turnout <- read_csv("2016 November General Election - Turnout Rates.csv")
+```
+
+
+
+
+
