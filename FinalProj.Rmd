@@ -25,10 +25,17 @@ tables <- url %>%
 election_results <- html_table(tables[[38]], fill = TRUE)
 names(election_results) <- c("State", "Voting.Type", "Clinton.Number", "Clinton.Percent", "Clinton.Electoral", "Trump.Number", "Trump.Percent", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "Abbreviation")
 election_results <- election_results %>%
-  select(State, Clinton.Percent, Trump.Percent, Abbreviation) 
+  select(State, Clinton.Percent, Trump.Percent, Abbreviation) %>%
+  filter(State != "U.S. Total", State != "Nebraska, 1st", State != "Nebraska, 2nd", State != "Nebraska, 3rd", State != "Maine, 1st", State != "Maine, 2nd", Clinton.Percent != "%")  
+
+election_results$State[election_results$State == "Maine (at-lg)"] <- "Maine"
+election_results$Abbreviation[election_results$Abbreviation == "ME–a/l"] <- "ME"
+election_results$State[election_results$State == "Nebraska (at-lg)"] <- "Nebraska"
+election_results$Abbreviation[election_results$Abbreviation == "NE–a/l"] <- "NE"
+
 voter_turnout <- voter_turnout %>%
   select(State, "Turnout" = "Turnout Rates", Numerators, X8, X15) %>%
-  mutate(as.numeric(X8))
+  mutate(as.numeric(X8)) %>%
   mutate(Voters.Disenfranchised = (X8 / Numerators) / 100)
   
 ```
