@@ -15,13 +15,17 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(readr)
 library(rvest)
+library(dplyr)
 election_integrity <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
 voter_turnout <- read_csv("2016 November General Election - Turnout Rates.csv")
 url <- "https://en.wikipedia.org/wiki/United_States_presidential_election,_2016"
 tables <- url %>%
   read_html() %>%
-  html_node(css = "table") 
+  html_nodes(css = "table") 
 election_results <- html_table(tables[[38]], fill = TRUE)
+names(election_results) <- c("State", "Voting.Type", "Clinton.Number", "Clinton.Percent", "Clinton.Electoral", "Trump.Number", "Trump.Percent", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "Abbreviation")
+election_results <- election_results %>%
+  select(State, Clinton.Percent, Trump.Percent, Abbreviation) 
 ```
 
 
