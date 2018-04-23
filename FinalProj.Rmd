@@ -34,9 +34,11 @@ election_results$State[election_results$State == "Nebraska (at-lg)"] <- "Nebrask
 election_results$Abbreviation[election_results$Abbreviation == "NE–a/l"] <- "NE"
 
 voter_turnout <- voter_turnout %>%
-  select(State, "Turnout" = "Turnout Rates", Numerators, X8, X15) %>%
-  mutate(as.numeric(X8)) %>%
-  mutate(Voters.Disenfranchised = (X8 / Numerators) / 100)
+  select(State, "VEP.Highest.Office" = "X5", "VAP.Highest.Office" = "X6", "Total.Ballots.Counted.(Estimate)" = "Numerators", "Highest.Office" = "X8", "Voting.Eligible.Population.(VEP)" = "Denominators", "Voting.Age.Population.(VAP)" = "X10", "Total.Ineligible.Felons" = "X15", "Abbreviation" = "X17") %>%
+  filter(!is.na(State) & State != "United States")
+  
+  
+  #mutate(Voters.Disenfranchised = 
   
 ```
 
