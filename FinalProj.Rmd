@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr)
 library(rvest)
 library(dplyr)
+library(ggplot2)
 election_integrity <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
 voter_turnout <- read_csv("2016 November General Election - Turnout Rates.csv")
 url <- "https://en.wikipedia.org/wiki/United_States_presidential_election,_2016"
@@ -34,12 +35,31 @@ election_results$State[election_results$State == "Nebraska (at-lg)"] <- "Nebrask
 election_results$Abbreviation[election_results$Abbreviation == "NE–a/l"] <- "NE"
 
 voter_turnout <- voter_turnout %>%
-  select(State, "VEP.Highest.Office" = "X5", "VAP.Highest.Office" = "X6", "Total.Ballots.Counted.(Estimate)" = "Numerators", "Highest.Office" = "X8", "Voting.Eligible.Population.(VEP)" = "Denominators", "Voting.Age.Population.(VAP)" = "X10", "Total.Ineligible.Felons" = "X15", "Abbreviation" = "X17") %>%
-  filter(!is.na(State) & State != "United States")
+  select(State, "VEP.Highest.Office" = "X5", "VAP.Highest.Office" = "X6", "Total.Ballots.Counted.(Estimate)" = "Numerators", "Highest.Office" = "X8", "Voting.Eligible.Population.VEP" = "Denominators", "Voting.Age.Population.VAP" = "X10", "Total.Ineligible.Felons" = "X15", "Abbreviation" = "X17") %>%
+  filter(!is.na(State) & State != "United States") %>%
+  mutate(Voting.Eligible.Population.VEP = as.numeric(gsub(",", "", as.character(Voting.Eligible.Population.VEP))), Voting.Age.Population.VAP = as.numeric(gsub(",", "", as.character(Voting.Age.Population.VAP))), Total.Ineligible.Felons = as.numeric(gsub(",", "", as.character(Total.Ineligible.Felons)))) %>%
+  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP)
   
-  
-  #mutate(Voters.Disenfranchised = 
-  
+election_integrity_simple <- election_integrity %>%
+  select(state, stateabbr, PEIIndexi, PEIIndex_rank)
+
+election_results <- election_results %>% 
+  mutate(Clinton.Percent = as.numeric(sub("%", "", as.character(Clinton.Percent))), Trump.Percent = as.numeric(sub("%", "", as.character(Trump.Percent)))) %>%
+  mutate(Vote.Clinton = ifelse(Clinton.Percent - Trump.Percent > 0, "Yes", "No"))
+
+integrity_turnout <- inner_join(election_integrity_simple, voter_turnout, by = c("stateabbr" = "Abbreviation", "state" = "State"))
+
+all <- inner_join(integrity_turnout, election_results, by = c("stateabbr" = "Abbreviation", "state" = "State"))
+
+#Simple ggplot stuff
+ggplot(integrity_turnout, aes(x = log(Voters.Disenfranchised), y = PEIIndex_rank)) +
+  geom_point()
+ggplot(all, aes(x = log(Voters.Disenfranchised), y = PEIIndexi, color = Vote.Clinton)) +
+  geom_point()
+ggplot(all, aes(x = log(Voters.Disenfranchised), y = Trump.Percent)) +
+  geom_point()
+ggplot(all, aes(x = log(Voters.Disenfranchised), y = Clinton.Percent)) +
+  geom_point()
 ```
 
 
