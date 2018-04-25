@@ -13,12 +13,38 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Final Project
 
 ```{r}
+#Load libraries
 library(readr)
 library(rvest)
 library(dplyr)
 library(ggplot2)
+```
+
+
+```{r}
+#Upload election integrity dataset
 election_integrity <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
+
+election_integrity_simple <- election_integrity %>%
+  select(state, stateabbr, PEIIndexi, PEIIndex_rank)
+
+```
+
+
+```{r}
+#Upload voter turnout dataset
 voter_turnout <- read_csv("2016 November General Election - Turnout Rates.csv")
+voter_turnout <- voter_turnout %>%
+  select(State, "VEP.Highest.Office" = "X5", "VAP.Highest.Office" = "X6", "Total.Ballots.Counted.(Estimate)" = "Numerators", "Highest.Office" = "X8", "Voting.Eligible.Population.VEP" = "Denominators", "Voting.Age.Population.VAP" = "X10", "Total.Ineligible.Felons" = "X15", "Abbreviation" = "X17") %>%
+  filter(!is.na(State) & State != "United States") %>%
+  mutate(Voting.Eligible.Population.VEP = as.numeric(gsub(",", "", as.character(Voting.Eligible.Population.VEP))), Voting.Age.Population.VAP = as.numeric(gsub(",", "", as.character(Voting.Age.Population.VAP))), Total.Ineligible.Felons = as.numeric(gsub(",", "", as.character(Total.Ineligible.Felons)))) %>%
+  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP)
+
+  
+```
+
+```{r}
+#Scrape election results dataset
 url <- "https://en.wikipedia.org/wiki/United_States_presidential_election,_2016"
 tables <- url %>%
   read_html() %>%
@@ -34,24 +60,23 @@ election_results$Abbreviation[election_results$Abbreviation == "ME–a/l"] <- "M
 election_results$State[election_results$State == "Nebraska (at-lg)"] <- "Nebraska"
 election_results$Abbreviation[election_results$Abbreviation == "NE–a/l"] <- "NE"
 
-voter_turnout <- voter_turnout %>%
-  select(State, "VEP.Highest.Office" = "X5", "VAP.Highest.Office" = "X6", "Total.Ballots.Counted.(Estimate)" = "Numerators", "Highest.Office" = "X8", "Voting.Eligible.Population.VEP" = "Denominators", "Voting.Age.Population.VAP" = "X10", "Total.Ineligible.Felons" = "X15", "Abbreviation" = "X17") %>%
-  filter(!is.na(State) & State != "United States") %>%
-  mutate(Voting.Eligible.Population.VEP = as.numeric(gsub(",", "", as.character(Voting.Eligible.Population.VEP))), Voting.Age.Population.VAP = as.numeric(gsub(",", "", as.character(Voting.Age.Population.VAP))), Total.Ineligible.Felons = as.numeric(gsub(",", "", as.character(Total.Ineligible.Felons)))) %>%
-  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP)
-  
-election_integrity_simple <- election_integrity %>%
-  select(state, stateabbr, PEIIndexi, PEIIndex_rank)
-
 election_results <- election_results %>% 
   mutate(Clinton.Percent = as.numeric(sub("%", "", as.character(Clinton.Percent))), Trump.Percent = as.numeric(sub("%", "", as.character(Trump.Percent)))) %>%
   mutate(Vote.Clinton = ifelse(Clinton.Percent - Trump.Percent > 0, "Yes", "No"))
 
-integrity_turnout <- inner_join(election_integrity_simple, voter_turnout, by = c("stateabbr" = "Abbreviation", "state" = "State"))
+```
+
+
+```{r}
+#Merge
+
+integrity_turnout <- inner_join(election_integrity, voter_turnout, by = c("stateabbr" = "Abbreviation", "state" = "State"))
 
 all <- inner_join(integrity_turnout, election_results, by = c("stateabbr" = "Abbreviation", "state" = "State"))
+```
 
-#Simple ggplot stuff
+```{r}
+#Exploratory Visuals ggplot stuff
 ggplot(integrity_turnout, aes(x = log(Voters.Disenfranchised), y = PEIIndex_rank)) +
   geom_point()
 ggplot(all, aes(x = log(Voters.Disenfranchised), y = PEIIndexi, color = Vote.Clinton)) +
@@ -60,9 +85,28 @@ ggplot(all, aes(x = log(Voters.Disenfranchised), y = Trump.Percent)) +
   geom_point()
 ggplot(all, aes(x = log(Voters.Disenfranchised), y = Clinton.Percent)) +
   geom_point()
+
 ```
 
 
+```{r}
+#Playing around with PCA
+subset <- select(all, timely, waited)
+
+#Exploratory PCA
+pca1 = prcomp(subset, scale. = TRUE)
+
+# create data frame with scores
+scores = as.data.frame(pca1$x)
+
+# plot of observations
+ggplot(data = scores, aes(x = PC1, y = PC2, label = rownames(scores))) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_text(colour = "tomato", alpha = 0.8, size = 4) +
+  ggtitle("PCA plot of USA States - Crime Rates")
+
+```
 
 
 
