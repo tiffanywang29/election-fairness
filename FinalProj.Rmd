@@ -21,11 +21,13 @@ library(ggplot2)
 ```
 
 
+
+
 ```{r}
 #Upload election integrity dataset
 election_integrity <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
 
-election_integrity_simple <- election_integrity %>%
+election_integrity_overall <- election_integrity %>%
   select(state, stateabbr, PEIIndexi, PEIIndex_rank)
 
 ```
@@ -68,11 +70,49 @@ election_results <- election_results %>%
 
 
 ```{r}
-#Merge
+#NOTE!!!! Something is wrong here. We only have 50 states including DC instead of 51
 
 integrity_turnout <- inner_join(election_integrity, voter_turnout, by = c("stateabbr" = "Abbreviation", "state" = "State"))
-
 all <- inner_join(integrity_turnout, election_results, by = c("stateabbr" = "Abbreviation", "state" = "State"))
+```
+
+```{r}
+#CW: Experimenting with PCA
+cw_pca_test <- all %>%
+  select(lawsunfair2, favoredincumbent2, citizens2, managed, votinginfo, fairofficials, legalelections,bdiscrim2, bfavored2, bimpartial, reglisted2, reginaccurate2, ineligible2, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, newspapers, tv2, fairaccess, faircoverage, socialmedia, subsidies, donations, accounts, rich2, resources2, violence2, fraudulent2, easy, choice, postal, disabled, expats, internet, secure, delay, faircount, intlmonitors2, domesticmonitors2, challenged2, protestspeace2, protestsviolent2, disputes, impartial, info, scrutiny, performance)
+
+#look into missingness
+propmiss <- function(dataframe) lapply(dataframe,function(x) data.frame(nmiss=sum(is.na(x)), n=length(x), propmiss=sum(is.na(x))/length(x)))
+
+ 
+propmiss(cw_pca_test)
+
+cw_pca_test_nm <- cw_pca_test %>%
+  select(-disputes, -domesticmonitors2, -intlmonitors2, -secure, -disabled, -resources2, -accounts, -subsidies, -socialmedia, -ineligible2, -reginaccurate2, -reglisted2, -bimpartial)
+
+prin_comp <- prcomp(cw_pca_test_nm, scale. = T)
+biplot(prin_comp, scale = 0)
+
+std_dev <- prin_comp$sdev
+pr_var <- std_dev^2
+prop_varex <- pr_var/sum(pr_var)
+plot(cumsum(prop_varex), xlab = "Principal Component",
+              ylab = "Cumulative Proportion of Variance Explained",
+              type = "b")
+
+plot(prop_varex, xlab = "Principal Component",
+             ylab = "Proportion of Variance Explained",
+             type = "b")
+
+cw_data <- data.frame(state = all$state, index = all$PEIIndexi, clinton = all$Trump.Percent, prin_comp$x) 
+
+ggplot(cw_data, aes(x= index, y=PC1)) +
+  geom_point(aes(col = clinton)) +
+  geom_smooth(method='lm')
+
+ggplot(cw_data, aes(x= PC2, y=PC1)) +
+  geom_point(aes(col = clinton)) +
+  geom_smooth(method='lm')
 ```
 
 ```{r}
