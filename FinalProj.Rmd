@@ -18,17 +18,19 @@ library(readr)
 library(rvest)
 library(dplyr)
 library(ggplot2)
+library(caret)
+
 ```
 
 
-
+We only keep variables relevant to the state and that are not missing for any states.
 
 ```{r}
 #Upload election integrity dataset
 election_integrity <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
 
-election_integrity_overall <- election_integrity %>%
-  select(state, stateabbr, PEIIndexi, PEIIndex_rank)
+election_integrity <- election_integrity %>%
+  select(stateabbr, PEIIndexi, PEIIndex_rank, PEItype, ratingstate, ratingstate_lci, ratingstate_hci, ratingcountry, ratingcountry_lci, ratingcountry_hci, lawsunfair2, favoredincumbent2, citizens2, lawsi, managed, votinginfo, fairofficials, legalelections, proceduresi, bfavored2, boundariesi, voteregi, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, partyregi, newspapers, tv2, fairaccess, faircoverage, mediai, donations, rich2, financei, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely)
 
 ```
 
@@ -40,7 +42,8 @@ voter_turnout <- voter_turnout %>%
   select(State, "VEP.Highest.Office" = "X5", "VAP.Highest.Office" = "X6", "Total.Ballots.Counted.(Estimate)" = "Numerators", "Highest.Office" = "X8", "Voting.Eligible.Population.VEP" = "Denominators", "Voting.Age.Population.VAP" = "X10", "Total.Ineligible.Felons" = "X15", "Abbreviation" = "X17") %>%
   filter(!is.na(State) & State != "United States") %>%
   mutate(Voting.Eligible.Population.VEP = as.numeric(gsub(",", "", as.character(Voting.Eligible.Population.VEP))), Voting.Age.Population.VAP = as.numeric(gsub(",", "", as.character(Voting.Age.Population.VAP))), Total.Ineligible.Felons = as.numeric(gsub(",", "", as.character(Total.Ineligible.Felons)))) %>%
-  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP)
+  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP) %>%
+  select(-State)
 
   
 ```
@@ -55,11 +58,10 @@ election_results <- html_table(tables[[38]], fill = TRUE)
 names(election_results) <- c("State", "Voting.Type", "Clinton.Number", "Clinton.Percent", "Clinton.Electoral", "Trump.Number", "Trump.Percent", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "Abbreviation")
 election_results <- election_results %>%
   select(State, Clinton.Percent, Trump.Percent, Abbreviation) %>%
-  filter(State != "U.S. Total", State != "Nebraska, 1st", State != "Nebraska, 2nd", State != "Nebraska, 3rd", State != "Maine, 1st", State != "Maine, 2nd", Clinton.Percent != "%")  
+  filter(State != "U.S. Total", State != "Nebraska, 1st", State != "Nebraska, 2nd", State != "Nebraska, 3rd", State != "Maine, 1st", State != "Maine, 2nd", Clinton.Percent != "%")  %>%
+  select(-State)
 
-election_results$State[election_results$State == "Maine (at-lg)"] <- "Maine"
 election_results$Abbreviation[election_results$Abbreviation == "ME–a/l"] <- "ME"
-election_results$State[election_results$State == "Nebraska (at-lg)"] <- "Nebraska"
 election_results$Abbreviation[election_results$Abbreviation == "NE–a/l"] <- "NE"
 
 election_results <- election_results %>% 
@@ -68,29 +70,20 @@ election_results <- election_results %>%
 
 ```
 
-
+note inner_join, left_join, and right_join all do the same thing because we are matching 50 states
 ```{r}
-#NOTE!!!! Something is wrong here. We only have 50 states including DC instead of 51
-
-integrity_turnout <- inner_join(election_integrity, voter_turnout, by = c("stateabbr" = "Abbreviation", "state" = "State"))
-all <- inner_join(integrity_turnout, election_results, by = c("stateabbr" = "Abbreviation", "state" = "State"))
+#Merge datasets
+integrity_turnout <- inner_join(election_integrity, voter_turnout, by = c("stateabbr" = "Abbreviation"))
+all <- inner_join(integrity_turnout, election_results, by = c("stateabbr" = "Abbreviation"))
 ```
 
 ```{r}
 #CW: Experimenting with PCA
-cw_pca_test <- all %>%
-  select(lawsunfair2, favoredincumbent2, citizens2, managed, votinginfo, fairofficials, legalelections,bdiscrim2, bfavored2, bimpartial, reglisted2, reginaccurate2, ineligible2, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, newspapers, tv2, fairaccess, faircoverage, socialmedia, subsidies, donations, accounts, rich2, resources2, violence2, fraudulent2, easy, choice, postal, disabled, expats, internet, secure, delay, faircount, intlmonitors2, domesticmonitors2, challenged2, protestspeace2, protestsviolent2, disputes, impartial, info, scrutiny, performance)
+pca_test <- all %>%
+  select(-stateabbr, -PEIIndexi, -PEIIndex_rank, -PEItype, -ratingstate, -ratingstate_hci, -ratingstate_lci, -ratingcountry, -ratingcountry_lci, -ratingcountry_hci, -lawsi, -proceduresi, -boundariesi, -voteregi, -partyregi, -mediai, -financei, -VEP.Highest.Office, -VAP.Highest.Office, -`Total.Ballots.Counted.(Estimate)`, -Highest.Office, -Voting.Eligible.Population.VEP, -Voting.Age.Population.VAP, -Total.Ineligible.Felons, -Voters.Disenfranchised, -Clinton.Percent, -Trump.Percent, -Vote.Clinton)
 
-#look into missingness
-propmiss <- function(dataframe) lapply(dataframe,function(x) data.frame(nmiss=sum(is.na(x)), n=length(x), propmiss=sum(is.na(x))/length(x)))
 
- 
-propmiss(cw_pca_test)
-
-cw_pca_test_nm <- cw_pca_test %>%
-  select(-disputes, -domesticmonitors2, -intlmonitors2, -secure, -disabled, -resources2, -accounts, -subsidies, -socialmedia, -ineligible2, -reginaccurate2, -reglisted2, -bimpartial)
-
-prin_comp <- prcomp(cw_pca_test_nm, scale. = T)
+prin_comp <- prcomp(pca_test, scale. = T)
 biplot(prin_comp, scale = 0)
 
 std_dev <- prin_comp$sdev
@@ -104,15 +97,28 @@ plot(prop_varex, xlab = "Principal Component",
              ylab = "Proportion of Variance Explained",
              type = "b")
 
-cw_data <- data.frame(state = all$state, index = all$PEIIndexi, clinton = all$Trump.Percent, prin_comp$x) 
+cw_data <- data.frame(state = all$stateabbr, index = all$PEIIndexi, clinton = all$Vote.Clinton, prin_comp$x) 
 
 ggplot(cw_data, aes(x= index, y=PC1)) +
-  geom_point(aes(col = clinton)) +
-  geom_smooth(method='lm')
+  geom_point(aes(col = clinton)) 
 
 ggplot(cw_data, aes(x= PC2, y=PC1)) +
-  geom_point(aes(col = clinton)) +
-  geom_smooth(method='lm')
+  geom_point(aes(col = clinton)) 
+
+#Set cross validation options
+cv_opts <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+
+#Set seed
+set.seed(7)
+
+#Build the model
+log_model1 <- train(clinton ~ index,  data=cw_data, method="glm", family="binomial",trControl = cv_opts)
+log_model2 <- train(clinton ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6 + PC7 + PC8 + PC9 + PC10 + PC11 + PC12 + PC13 +PC14 + PC15 + PC16 + PC17 + PC18 + PC19 + PC20,  data=cw_data, method="glm", family="binomial",trControl = cv_opts)
+
+log_model1
+log_model2
+
+
 ```
 
 ```{r}
