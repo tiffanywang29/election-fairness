@@ -30,7 +30,7 @@ We only keep variables relevant to the state and that are not missing for any st
 election_integrity <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
 
 election_integrity <- election_integrity %>%
-  select(stateabbr, PEIIndexi, PEIIndex_rank, PEItype, ratingstate, ratingstate_lci, ratingstate_hci, ratingcountry, ratingcountry_lci, ratingcountry_hci, lawsunfair2, favoredincumbent2, citizens2, lawsi, managed, votinginfo, fairofficials, legalelections, proceduresi, bfavored2, boundariesi, voteregi, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, partyregi, newspapers, tv2, fairaccess, faircoverage, mediai, donations, rich2, financei, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely)
+  select(stateabbr, PEIIndexi, PEIIndex_rank, PEItype, ratingstate, ratingstate_lci, ratingstate_hci, ratingcountry, ratingcountry_lci, ratingcountry_hci, lawsunfair2, favoredincumbent2, citizens2, lawsi, managed, votinginfo, fairofficials, legalelections, proceduresi, bfavored2, boundariesi, voteregi, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, partyregi, newspapers, tv2, fairaccess, faircoverage, mediai, donations, rich2, financei, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely, results, votingi, reglisted, bimpartial, ineligible)
 
 ```
 
@@ -42,7 +42,7 @@ voter_turnout <- voter_turnout %>%
   select(State, "VEP.Highest.Office" = "X5", "VAP.Highest.Office" = "X6", "Total.Ballots.Counted.(Estimate)" = "Numerators", "Highest.Office" = "X8", "Voting.Eligible.Population.VEP" = "Denominators", "Voting.Age.Population.VAP" = "X10", "Total.Ineligible.Felons" = "X15", "Abbreviation" = "X17") %>%
   filter(!is.na(State) & State != "United States") %>%
   mutate(Voting.Eligible.Population.VEP = as.numeric(gsub(",", "", as.character(Voting.Eligible.Population.VEP))), Voting.Age.Population.VAP = as.numeric(gsub(",", "", as.character(Voting.Age.Population.VAP))), Total.Ineligible.Felons = as.numeric(gsub(",", "", as.character(Total.Ineligible.Felons)))) %>%
-  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP) %>%
+  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP, Percent.Disenfranchised = Voters.Disenfranchised / Voting.Age.Population.VAP) %>%
   select(-State)
 
   
@@ -123,15 +123,24 @@ log_model2
 
 ```{r}
 #Exploratory Visuals ggplot stuff
-ggplot(integrity_turnout, aes(x = log(Voters.Disenfranchised), y = PEIIndex_rank)) +
+ggplot(integrity_turnout, aes(x = Percent.Disenfranchised, y = PEIIndex_rank)) +
   geom_point()
-ggplot(all, aes(x = log(Voters.Disenfranchised), y = PEIIndexi, color = Vote.Clinton)) +
+ggplot(all, aes(x = Percent.Disenfranchised, y = PEIIndexi, color = Vote.Clinton)) +
   geom_point()
-ggplot(all, aes(x = log(Voters.Disenfranchised), y = Trump.Percent)) +
+ggplot(all, aes(x = Percent.Disenfranchised, y = Trump.Percent)) +
   geom_point()
 ggplot(all, aes(x = log(Voters.Disenfranchised), y = Clinton.Percent)) +
   geom_point()
-
+ggplot(all, aes(y = log(Voters.Disenfranchised), x = easy)) +
+  geom_point()
+ggplot(all, aes(y = log(Voters.Disenfranchised), x = votingi)) +
+  geom_point()
+ggplot(all, aes(y = log(Percent.Disenfranchised), x = reglisted)) +
+  geom_point()
+ggplot(all, aes(y = log(Voters.Disenfranchised), x = ineligible)) +
+  geom_point()
+ggplot(all, aes(y = Clinton.Percent, x = ineligible)) +
+  geom_point()
 ```
 
 
