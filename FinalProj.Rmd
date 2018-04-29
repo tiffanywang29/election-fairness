@@ -156,14 +156,36 @@ shiny_all <- all %>%
 
 ui <- fluidPage(
   plotlyOutput("plot"),
-  verbatimTextOutput("event")
+  verbatimTextOutput("event"),
+  
+  hr(),
+  
+  fluidRow(
+    column(3,
+      selectInput("x", "X-Axis", names(shiny_all)[3:11]),
+      selectInput("y", "Y-Axis", names(shiny_all)[3:11], names(shiny_all)[4])
+    ),
+    column(4,
+      checkboxGroupInput("candidate", "Candidate Chosen", 
+                         choices = list("Clinton" = "Yes", "Trump" = "No"),
+                         selected = unique(shiny_all$Vote_Clinton))
+            ),
+    column(5,
+      selectInput("state", "What state do you want to see?",
+                  choices = unique(shiny_all$stateabbr))
+           )
+  )
 )
 
 server <- function(input, output) {
 
   output$plot <- renderPlotly({
-    ggplot(shiny_all, aes(x = Clinton_Percent, y = votingi)) +
-      geom_point()
+    req(input$candidate)
+    all_reactive <- filter(shiny_all, Vote_Clinton %in% input$candidate)
+    state_reactive <- filter(shiny_all, stateabbr %in% input$state)
+    ggplot(all_reactive, aes(color = Vote_Clinton)) +
+      geom_point(aes_string(x = input$x, y = input$y)) +
+      geom_text(data = state_reactive, mapping = aes_string(x = input$x, y = input$y), label = input$state)
   })
 
   output$event <- renderPrint({
