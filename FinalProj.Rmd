@@ -27,9 +27,9 @@ We only keep variables relevant to the state and that are not missing for any st
 
 ```{r}
 #Upload election integrity dataset
-election_integrity <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
+election_integrity_full <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
 
-election_integrity <- election_integrity %>%
+election_integrity <- election_integrity_full %>%
   select(stateabbr, PEIIndexi, PEIIndex_rank, PEItype, ratingstate, ratingstate_lci, ratingstate_hci, ratingcountry, ratingcountry_lci, ratingcountry_hci, lawsunfair2, favoredincumbent2, citizens2, lawsi, managed, votinginfo, fairofficials, legalelections, proceduresi, bfavored2, boundariesi, voteregi, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, partyregi, newspapers, tv2, fairaccess, faircoverage, mediai, donations, rich2, financei, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely, votingi)
 
 ```
@@ -123,10 +123,33 @@ log_model3
 
 ```
 
+From the PCA, we saw that it was possible for the PEIIndex to predict the outcome of an election. We wanted to test this out on a real life case study, and what better election to use than the highly contentious 2016 presidential election! Democrats frequently argue that Republicans pass laws to disenfranchise voters more likely to vote Democrat, giving them a greater chance that they'll win more elections. In this next section we will try to use the results the 2016 presidential election to gauge how much weight, if any, this argument has.
 ```{r}
-#Exploratory Visuals ggplot stuff
-
+#Creating a dataset with all the variables from election_integrity that couldn't be used for PCA because of missing values.
+plots <- left_join(election_integrity_full, all)
+#Getting a sense of voter access
+ggplot(plots, aes(x = Pct_Felon_Disenfranchised, y = PEIIndexi, color = Vote_Clinton)) +
+  geom_point()
+ggplot(plots, aes(x = Vote_Clinton, y = Pct_Felon_Disenfranchised)) +
+  geom_boxplot()
 ```
+
+```{r}
+ggplot(plots, aes(x = Vote_Clinton, y = boundariesi)) +
+  geom_boxplot()
+```
+
+```{r}
+ggplot(plots, aes(x = Vote_Clinton, y = citizens2)) +
+  geom_boxplot()
+```
+
+```{r}
+#Are there more illegal voters for Democrats?
+ggplot(plots, aes(x = Vote_Clinton, y = ineligible2)) +
+  geom_boxplot()
+```
+
 
 ```{r}
 #shiny
@@ -138,7 +161,7 @@ all_quant <- all %>%
   select(stateabbr, Vote_Clinton, PEIIndexi, lawsi, proceduresi, boundariesi, voteregi, partyregi, mediai, financei, votingi, Pct_Felon_Disenfranchised) 
 
 all_qual <- all %>%
-  select(stateabbr, Vote_Clinton, PEItype, lawsunfair2, favoredincumbent2, citizens2, managed, votinginfo, fairofficials, legalelections, bfavored2, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, newspapers, tv2, fairaccess, faircoverage, donations, rich2, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely)
+  select(stateabbr, Vote_Clinton, lawsunfair2, favoredincumbent2, citizens2, managed, votinginfo, fairofficials, legalelections, bfavored2, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, newspapers, tv2, fairaccess, faircoverage, donations, rich2, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely)
 
 ui <- navbarPage(h2("Let's Look at Some Relationships!"),
   tabPanel("Quantitative Variables",
@@ -174,8 +197,8 @@ ui <- navbarPage(h2("Let's Look at Some Relationships!"),
   
   fluidRow(
     column(5,
-      selectInput("x", "X-Axis", names(all_qual)[3:35]),
-      selectInput("y", "Y-Axis", names(all_qual)[3:35], names(all_qual)[4])
+      selectInput("x", "X-Axis", names(all_qual)[3:34]),
+      selectInput("y", "Y-Axis", names(all_qual)[3:34], names(all_qual)[4])
     ),
     column(2,
       checkboxGroupInput("candidate2", "Candidate Chosen", 
@@ -214,7 +237,7 @@ server <- function(input, output) {
     reactive_state <- filter(all_qual, stateabbr %in% input$state2)
     ggplot(reactive_all, aes(color = Vote_Clinton, "State" = stateabbr)) +
       geom_point(aes_string(x = input$x, y = input$y)) +
-      geom_text(data = reactive_state, mapping = aes_string(x = input$x, y = input$y), label = input$state) +
+      geom_text(data = reactive_state, mapping = aes_string(x = input$x, y = input$y), label = input$state2) +
       scale_color_manual(values = c("red", "blue"), labels = c("Trump", "Clinton"), name = "") +
       coord_cartesian(xlim = c(0, 5), ylim = c(0, 5))
   })
