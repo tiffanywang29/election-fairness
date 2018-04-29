@@ -97,7 +97,7 @@ plot(prop_varex, xlab = "Principal Component",
              ylab = "Proportion of Variance Explained",
              type = "b")
 
-cw_data <- data.frame(state = all$stateabbr, index = all$PEIIndexi, clinton = all$Vote_Clinton, pct_dis = all$Pct_Felon.Disenfranchised, prin_comp$x) 
+cw_data <- data.frame(state = all$stateabbr, index = all$PEIIndexi, clinton = all$Vote_Clinton, pct_dis = all$Pct_Felon_Disenfranchised, prin_comp$x) 
 
 ggplot(cw_data, aes(x= index, y=PC1)) +
   geom_point(aes(col = clinton)) 
@@ -125,24 +125,7 @@ log_model3
 
 ```{r}
 #Exploratory Visuals ggplot stuff
-ggplot(integrity_turnout, aes(x = Pct.felon.Disenfranchised, y = PEIIndex_rank)) +
-  geom_point()
-ggplot(all, aes(x = Pct.felon.Disenfranchised, y = PEIIndexi, color = Vote.Clinton)) +
-  geom_point()
-ggplot(all, aes(x = Percent.Disenfranchised, y = Trump.Percent)) +
-  geom_point()
-ggplot(all, aes(x = log(Voters.Disenfranchised), y = Clinton.Percent)) +
-  geom_point()
-ggplot(all, aes(y = log(Voters.Disenfranchised), x = easy)) +
-  geom_point()
-ggplot(all, aes(y = log(Voters.Disenfranchised), x = votingi)) +
-  geom_point()
-ggplot(all, aes(y = log(Percent.Disenfranchised), x = reglisted)) +
-  geom_point()
-ggplot(all, aes(y = log(Voters.Disenfranchised), x = ineligible)) +
-  geom_point()
-ggplot(all, aes(y = Clinton.Percent, x = ineligible)) +
-  geom_point()
+
 ```
 
 ```{r}
@@ -151,46 +134,89 @@ library(shiny)
 library(plotly)
 library(ggplot2)
 
-shiny_all <- all %>%
-  select(stateabbr, Vote_Clinton, PEIIndexi, lawsi, proceduresi, boundariesi, voteregi, partyregi, mediai, financei, votingi, Pct_Felon_Disenfranchised)
+all_quant <- all %>%
+  select(stateabbr, Vote_Clinton, PEIIndexi, lawsi, proceduresi, boundariesi, voteregi, partyregi, mediai, financei, votingi, Pct_Felon_Disenfranchised) 
 
-ui <- fluidPage(
-  plotlyOutput("plot"),
-  verbatimTextOutput("event"),
+all_qual <- all %>%
+  select(stateabbr, Vote_Clinton, PEItype, lawsunfair2, favoredincumbent2, citizens2, managed, votinginfo, fairofficials, legalelections, bfavored2, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, newspapers, tv2, fairaccess, faircoverage, donations, rich2, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely)
+
+ui <- navbarPage(h2("Let's Look at Some Relationships!"),
+  tabPanel("Quantitative Variables",
+    plotlyOutput("quant"),
   
   hr(),
   
   fluidRow(
-    column(3,
-      selectInput("x", "X-Axis", names(shiny_all)[3:11]),
-      selectInput("y", "Y-Axis", names(shiny_all)[3:11], names(shiny_all)[4])
+    column(5,
+      selectInput("x", "X-Axis", names(all_quant)[3:11]),
+      selectInput("y", "Y-Axis", names(all_quant)[3:11], names(all_quant)[4])
     ),
-    column(4,
+    column(2,
       checkboxGroupInput("candidate", "Candidate Chosen", 
                          choices = list("Clinton" = "Yes", "Trump" = "No"),
-                         selected = unique(shiny_all$Vote_Clinton))
+                         selected = unique(all_quant$Vote_Clinton))
             ),
     column(5,
       selectInput("state", "What state do you want to see?",
-                  choices = unique(shiny_all$stateabbr))
+                  choices = unique(all_quant$stateabbr))
            )
+  ),
+  
+  fluidRow(
+    h3("Variable Key")
+  )
+),
+
+  tabPanel("Categorical Variables",
+    plotlyOutput("qual"),
+      
+  hr(),
+  
+  fluidRow(
+    column(5,
+      selectInput("x", "X-Axis", names(all_qual)[3:35]),
+      selectInput("y", "Y-Axis", names(all_qual)[3:35], names(all_qual)[4])
+    ),
+    column(2,
+      checkboxGroupInput("candidate2", "Candidate Chosen", 
+                         choices = list("Clinton" = "Yes", "Trump" = "No"),
+                         selected = unique(all_qual$Vote_Clinton))
+            ),
+    column(5,
+      selectInput("state2", "What state do you want to see?",
+                  choices = unique(all_qual$stateabbr))
+           )
+  ),
+  
+  fluidRow(
+    h3("Variable Key"),
+  p(tags$b("Note:"), "For all these variables, experts were asked to rate the various states on a scale of 1-5, which is why we called them categorical. However, all the experts' ratings were averaged, allowing them to be plotted as quantitative.")
+  )
   )
 )
 
 server <- function(input, output) {
 
-  output$plot <- renderPlotly({
+  output$quant <- renderPlotly({
     req(input$candidate)
-    all_reactive <- filter(shiny_all, Vote_Clinton %in% input$candidate)
-    state_reactive <- filter(shiny_all, stateabbr %in% input$state)
-    ggplot(all_reactive, aes(color = Vote_Clinton)) +
+    all_reactive <- filter(all_quant, Vote_Clinton %in% input$candidate)
+    state_reactive <- filter(all_quant, stateabbr %in% input$state)
+    ggplot(all_reactive, aes(color = Vote_Clinton, "State" = stateabbr)) +
       geom_point(aes_string(x = input$x, y = input$y)) +
-      geom_text(data = state_reactive, mapping = aes_string(x = input$x, y = input$y), label = input$state)
+      geom_text(data = state_reactive, mapping = aes_string(x = input$x, y = input$y), label = input$state) +
+      scale_color_manual(values = c("red", "blue"), labels = c("Trump", "Clinton"), name = "") +
+      coord_cartesian(xlim = c(0, 100), ylim = c(0, 100))
   })
-
-  output$event <- renderPrint({
-    d <- event_data("plotly_hover")
-    if (is.null(d)) "Hover on a point!" else d
+  
+    output$qual <- renderPlotly({
+    req(input$candidate2)
+    reactive_all <- filter(all_qual, Vote_Clinton %in% input$candidate2)
+    reactive_state <- filter(all_qual, stateabbr %in% input$state2)
+    ggplot(reactive_all, aes(color = Vote_Clinton, "State" = stateabbr)) +
+      geom_point(aes_string(x = input$x, y = input$y)) +
+      geom_text(data = reactive_state, mapping = aes_string(x = input$x, y = input$y), label = input$state) +
+      scale_color_manual(values = c("red", "blue"), labels = c("Trump", "Clinton"), name = "") +
+      coord_cartesian(xlim = c(0, 5), ylim = c(0, 5))
   })
 }
 
