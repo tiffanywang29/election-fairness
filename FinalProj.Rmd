@@ -39,10 +39,10 @@ election_integrity <- election_integrity %>%
 #Upload voter turnout dataset
 voter_turnout <- read_csv("2016 November General Election - Turnout Rates.csv")
 voter_turnout <- voter_turnout %>%
-  select(State, "VEP.Highest.Office" = "X5", "VAP.Highest.Office" = "X6", "Total.Ballots.Counted.(Estimate)" = "Numerators", "Highest.Office" = "X8", "Voting.Eligible.Population.VEP" = "Denominators", "Voting.Age.Population.VAP" = "X10", "Total.Ineligible.Felons" = "X15", "Abbreviation" = "X17") %>%
+  select(State, "VEP_Highest_Office" = "X5", "VAP_Highest_Office" = "X6", "Total_Ballots_Counted_(Estimate)" = "Numerators", "Highest_Office" = "X8", "Voting_Eligible_Population_VEP" = "Denominators", "Voting_Age_Population_VAP" = "X10", "Total_Ineligible_Felons" = "X15", "Abbreviation" = "X17") %>%
   filter(!is.na(State) & State != "United States") %>%
-  mutate(Voting.Eligible.Population.VEP = as.numeric(gsub(",", "", as.character(Voting.Eligible.Population.VEP))), Voting.Age.Population.VAP = as.numeric(gsub(",", "", as.character(Voting.Age.Population.VAP))), Total.Ineligible.Felons = as.numeric(gsub(",", "", as.character(Total.Ineligible.Felons)))) %>%
-  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP, Pct.felon.Disenfranchised = Total.Ineligible.Felons / Voting.Age.Population.VAP) %>%
+  mutate(Voting_Eligible_Population_VEP = as.numeric(gsub(",", "", as.character(Voting_Eligible_Population_VEP))), Voting_Age_Population_VAP = as.numeric(gsub(",", "", as.character(Voting_Age_Population_VAP))), Total_Ineligible_Felons = as.numeric(gsub(",", "", as.character(Total_Ineligible_Felons)))) %>%
+  mutate(Voters_Disenfranchised = Voting_Age_Population_VAP - Voting_Eligible_Population_VEP, Pct_Felon_Disenfranchised = Total_Ineligible_Felons / Voting_Age_Population_VAP) %>%
   select(-State)
 
   
@@ -55,18 +55,18 @@ tables <- url %>%
   read_html() %>%
   html_nodes(css = "table") 
 election_results <- html_table(tables[[38]], fill = TRUE)
-names(election_results) <- c("State", "Voting.Type", "Clinton.Number", "Clinton.Percent", "Clinton.Electoral", "Trump.Number", "Trump.Percent", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "Abbreviation")
+names(election_results) <- c("State", "Voting_Type", "Clinton_Number", "Clinton_Percent", "Clinton_Electoral", "Trump_Number", "Trump_Percent", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "Abbreviation", "q")
 election_results <- election_results %>%
-  select(State, Clinton.Percent, Trump.Percent, Abbreviation) %>%
-  filter(State != "U.S. Total", State != "Nebraska, 1st", State != "Nebraska, 2nd", State != "Nebraska, 3rd", State != "Maine, 1st", State != "Maine, 2nd", Clinton.Percent != "%")  %>%
+  select(State, Clinton_Percent, Trump_Percent, Abbreviation) %>%
+  filter(State != "U.S. Total", State != "Nebraska, 1st", State != "Nebraska, 2nd", State != "Nebraska, 3rd", State != "Maine, 1st", State != "Maine, 2nd", Clinton_Percent != "%")  %>%
   select(-State)
 
 election_results$Abbreviation[election_results$Abbreviation == "ME–a/l"] <- "ME"
 election_results$Abbreviation[election_results$Abbreviation == "NE–a/l"] <- "NE"
 
 election_results <- election_results %>% 
-  mutate(Clinton.Percent = as.numeric(sub("%", "", as.character(Clinton.Percent))), Trump.Percent = as.numeric(sub("%", "", as.character(Trump.Percent)))) %>%
-  mutate(Vote.Clinton = ifelse(Clinton.Percent - Trump.Percent > 0, "Yes", "No"))
+  mutate(Clinton_Percent = as.numeric(sub("%", "", as.character(Clinton_Percent))), Trump_Percent = as.numeric(sub("%", "", as.character(Trump_Percent)))) %>%
+  mutate(Vote_Clinton = ifelse(Clinton_Percent - Trump_Percent > 0, "Yes", "No"))
 
 ```
 
@@ -80,7 +80,7 @@ all <- inner_join(integrity_turnout, election_results, by = c("stateabbr" = "Abb
 ```{r}
 #CW: Experimenting with PCA
 pca_test <- all %>%
-  select(-stateabbr, -PEIIndexi, -PEIIndex_rank, -PEItype, -ratingstate, -ratingstate_hci, -ratingstate_lci, -ratingcountry, -ratingcountry_lci, -ratingcountry_hci, -lawsi, -proceduresi, -boundariesi, -voteregi, -partyregi, -mediai, -financei, -VEP.Highest.Office, -VAP.Highest.Office, -`Total.Ballots.Counted.(Estimate)`, -Highest.Office, -Voting.Eligible.Population.VEP, -Voting.Age.Population.VAP, -Total.Ineligible.Felons, -Voters.Disenfranchised, -Clinton.Percent, -Trump.Percent, -Vote.Clinton, -votingi, -Pct.felon.Disenfranchised)
+  select(-stateabbr, -PEIIndexi, -PEIIndex_rank, -PEItype, -ratingstate, -ratingstate_hci, -ratingstate_lci, -ratingcountry, -ratingcountry_lci, -ratingcountry_hci, -lawsi, -proceduresi, -boundariesi, -voteregi, -partyregi, -mediai, -financei, -VEP_Highest_Office, -VAP_Highest_Office, -`Total_Ballots_Counted_(Estimate)`, -Highest_Office, -Voting_Eligible_Population_VEP, -Voting_Age_Population_VAP, -Total_Ineligible_Felons, -Voters_Disenfranchised, -Clinton_Percent, -Trump_Percent, -Vote_Clinton, -votingi, -Pct_Felon_Disenfranchised)
 
 
 prin_comp <- prcomp(pca_test, scale. = T)
@@ -97,7 +97,7 @@ plot(prop_varex, xlab = "Principal Component",
              ylab = "Proportion of Variance Explained",
              type = "b")
 
-cw_data <- data.frame(state = all$stateabbr, index = all$PEIIndexi, clinton = all$Vote.Clinton, pct_dis = all$Pct.felon.Disenfranchised, prin_comp$x) 
+cw_data <- data.frame(state = all$stateabbr, index = all$PEIIndexi, clinton = all$Vote_Clinton, pct_dis = all$Pct_Felon.Disenfranchised, prin_comp$x) 
 
 ggplot(cw_data, aes(x= index, y=PC1)) +
   geom_point(aes(col = clinton)) 
@@ -145,6 +145,35 @@ ggplot(all, aes(y = Clinton.Percent, x = ineligible)) +
   geom_point()
 ```
 
+```{r}
+#shiny
+library(shiny)
+library(plotly)
+library(ggplot2)
+
+shiny_all <- all %>%
+  select(stateabbr, Vote_Clinton, PEIIndexi, lawsi, proceduresi, boundariesi, voteregi, partyregi, mediai, financei, votingi, Pct_Felon_Disenfranchised)
+
+ui <- fluidPage(
+  plotlyOutput("plot"),
+  verbatimTextOutput("event")
+)
+
+server <- function(input, output) {
+
+  output$plot <- renderPlotly({
+    ggplot(shiny_all, aes(x = Clinton_Percent, y = votingi)) +
+      geom_point()
+  })
+
+  output$event <- renderPrint({
+    d <- event_data("plotly_hover")
+    if (is.null(d)) "Hover on a point!" else d
+  })
+}
+
+shinyApp(ui, server)
+```
 
 
 
