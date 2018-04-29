@@ -30,7 +30,7 @@ We only keep variables relevant to the state and that are not missing for any st
 election_integrity <- read_csv("PEI US 2016 state-level (PEI_US_1.0) 16-12-2017.csv")
 
 election_integrity <- election_integrity %>%
-  select(stateabbr, PEIIndexi, PEIIndex_rank, PEItype, ratingstate, ratingstate_lci, ratingstate_hci, ratingcountry, ratingcountry_lci, ratingcountry_hci, lawsunfair2, favoredincumbent2, citizens2, lawsi, managed, votinginfo, fairofficials, legalelections, proceduresi, bfavored2, boundariesi, voteregi, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, partyregi, newspapers, tv2, fairaccess, faircoverage, mediai, donations, rich2, financei, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely, results, votingi, reglisted, bimpartial, ineligible)
+  select(stateabbr, PEIIndexi, PEIIndex_rank, PEItype, ratingstate, ratingstate_lci, ratingstate_hci, ratingcountry, ratingcountry_lci, ratingcountry_hci, lawsunfair2, favoredincumbent2, citizens2, lawsi, managed, votinginfo, fairofficials, legalelections, proceduresi, bfavored2, boundariesi, voteregi, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, partyregi, newspapers, tv2, fairaccess, faircoverage, mediai, donations, rich2, financei, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely, votingi)
 
 ```
 
@@ -42,7 +42,7 @@ voter_turnout <- voter_turnout %>%
   select(State, "VEP.Highest.Office" = "X5", "VAP.Highest.Office" = "X6", "Total.Ballots.Counted.(Estimate)" = "Numerators", "Highest.Office" = "X8", "Voting.Eligible.Population.VEP" = "Denominators", "Voting.Age.Population.VAP" = "X10", "Total.Ineligible.Felons" = "X15", "Abbreviation" = "X17") %>%
   filter(!is.na(State) & State != "United States") %>%
   mutate(Voting.Eligible.Population.VEP = as.numeric(gsub(",", "", as.character(Voting.Eligible.Population.VEP))), Voting.Age.Population.VAP = as.numeric(gsub(",", "", as.character(Voting.Age.Population.VAP))), Total.Ineligible.Felons = as.numeric(gsub(",", "", as.character(Total.Ineligible.Felons)))) %>%
-  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP, Percent.Disenfranchised = Voters.Disenfranchised / Voting.Age.Population.VAP) %>%
+  mutate(Voters.Disenfranchised = Voting.Age.Population.VAP - Voting.Eligible.Population.VEP, Pct.felon.Disenfranchised = Total.Ineligible.Felons / Voting.Age.Population.VAP) %>%
   select(-State)
 
   
@@ -80,7 +80,7 @@ all <- inner_join(integrity_turnout, election_results, by = c("stateabbr" = "Abb
 ```{r}
 #CW: Experimenting with PCA
 pca_test <- all %>%
-  select(-stateabbr, -PEIIndexi, -PEIIndex_rank, -PEItype, -ratingstate, -ratingstate_hci, -ratingstate_lci, -ratingcountry, -ratingcountry_lci, -ratingcountry_hci, -lawsi, -proceduresi, -boundariesi, -voteregi, -partyregi, -mediai, -financei, -VEP.Highest.Office, -VAP.Highest.Office, -`Total.Ballots.Counted.(Estimate)`, -Highest.Office, -Voting.Eligible.Population.VEP, -Voting.Age.Population.VAP, -Total.Ineligible.Felons, -Voters.Disenfranchised, -Clinton.Percent, -Trump.Percent, -Vote.Clinton)
+  select(-stateabbr, -PEIIndexi, -PEIIndex_rank, -PEItype, -ratingstate, -ratingstate_hci, -ratingstate_lci, -ratingcountry, -ratingcountry_lci, -ratingcountry_hci, -lawsi, -proceduresi, -boundariesi, -voteregi, -partyregi, -mediai, -financei, -VEP.Highest.Office, -VAP.Highest.Office, -`Total.Ballots.Counted.(Estimate)`, -Highest.Office, -Voting.Eligible.Population.VEP, -Voting.Age.Population.VAP, -Total.Ineligible.Felons, -Voters.Disenfranchised, -Clinton.Percent, -Trump.Percent, -Vote.Clinton, -votingi, -Pct.felon.Disenfranchised)
 
 
 prin_comp <- prcomp(pca_test, scale. = T)
@@ -97,7 +97,7 @@ plot(prop_varex, xlab = "Principal Component",
              ylab = "Proportion of Variance Explained",
              type = "b")
 
-cw_data <- data.frame(state = all$stateabbr, index = all$PEIIndexi, clinton = all$Vote.Clinton, prin_comp$x) 
+cw_data <- data.frame(state = all$stateabbr, index = all$PEIIndexi, clinton = all$Vote.Clinton, pct_dis = all$Pct.felon.Disenfranchised, prin_comp$x) 
 
 ggplot(cw_data, aes(x= index, y=PC1)) +
   geom_point(aes(col = clinton)) 
@@ -113,19 +113,21 @@ set.seed(7)
 
 #Build the model
 log_model1 <- train(clinton ~ index,  data=cw_data, method="glm", family="binomial",trControl = cv_opts)
-log_model2 <- train(clinton ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6 + PC7 + PC8 + PC9 + PC10 + PC11 + PC12 + PC13 +PC14 + PC15 + PC16 + PC17 + PC18 + PC19 + PC20,  data=cw_data, method="glm", family="binomial",trControl = cv_opts)
+log_model2 <- train(clinton ~ index + pct_dis,  data=cw_data, method="glm", family="binomial",trControl = cv_opts)
+log_model3 <- train(clinton ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6 + PC7 + PC8 + PC9 + PC10 + PC11 + PC12 + PC13 +PC14 + PC15 + PC16 + PC17 + PC18 + PC19 + PC20,  data=cw_data, method="glm", family="binomial",trControl = cv_opts)
 
 log_model1
 log_model2
+log_model3
 
 
 ```
 
 ```{r}
 #Exploratory Visuals ggplot stuff
-ggplot(integrity_turnout, aes(x = Percent.Disenfranchised, y = PEIIndex_rank)) +
+ggplot(integrity_turnout, aes(x = Pct.felon.Disenfranchised, y = PEIIndex_rank)) +
   geom_point()
-ggplot(all, aes(x = Percent.Disenfranchised, y = PEIIndexi, color = Vote.Clinton)) +
+ggplot(all, aes(x = Pct.felon.Disenfranchised, y = PEIIndexi, color = Vote.Clinton)) +
   geom_point()
 ggplot(all, aes(x = Percent.Disenfranchised, y = Trump.Percent)) +
   geom_point()
@@ -144,24 +146,7 @@ ggplot(all, aes(y = Clinton.Percent, x = ineligible)) +
 ```
 
 
-```{r}
-#Playing around with PCA
-subset <- select(all, timely, waited)
 
-#Exploratory PCA
-pca1 = prcomp(subset, scale. = TRUE)
-
-# create data frame with scores
-scores = as.data.frame(pca1$x)
-
-# plot of observations
-ggplot(data = scores, aes(x = PC1, y = PC2, label = rownames(scores))) +
-  geom_hline(yintercept = 0, colour = "gray65") +
-  geom_vline(xintercept = 0, colour = "gray65") +
-  geom_text(colour = "tomato", alpha = 0.8, size = 4) +
-  ggtitle("PCA plot of USA States - Crime Rates")
-
-```
 
 
 
