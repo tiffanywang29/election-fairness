@@ -197,8 +197,8 @@ ui <- navbarPage(h2("Let's Look at Some Relationships!"),
   
   fluidRow(
     column(5,
-      selectInput("x", "X-Axis", names(all_qual)[3:34]),
-      selectInput("y", "Y-Axis", names(all_qual)[3:34], names(all_qual)[4])
+      selectInput("x2", "X-Axis", names(all_qual)[3:34]),
+      selectInput("y2", "Y-Axis", names(all_qual)[3:34], names(all_qual)[4])
     ),
     column(2,
       checkboxGroupInput("candidate2", "Candidate Chosen", 
@@ -213,7 +213,7 @@ ui <- navbarPage(h2("Let's Look at Some Relationships!"),
   
   fluidRow(
     h3("Variable Key"),
-  p(tags$b("Note:"), "For all these variables, experts were asked to rate the various states on a scale of 1-5, which is why we called them categorical. However, all the experts' ratings were averaged, allowing them to be plotted as quantitative.")
+  p(tags$b("Note:"), "For all these variables, experts were asked to rate the various states on a scale of 1-5 based on various statements, with 1 being strongly agree and 5 being strongly disagree, which is why we called them categorical. However, all the experts' ratings were averaged, allowing them to be plotted as quantitative.")
   )
   )
 )
@@ -236,8 +236,8 @@ server <- function(input, output) {
     reactive_all <- filter(all_qual, Vote_Clinton %in% input$candidate2)
     reactive_state <- filter(all_qual, stateabbr %in% input$state2)
     ggplot(reactive_all, aes(color = Vote_Clinton, "State" = stateabbr)) +
-      geom_point(aes_string(x = input$x, y = input$y)) +
-      geom_text(data = reactive_state, mapping = aes_string(x = input$x, y = input$y), label = input$state2) +
+      geom_point(aes_string(x = input$x2, y = input$y2)) +
+      geom_text(data = reactive_state, mapping = aes_string(x = input$x2, y = input$y2), label = input$state2) +
       scale_color_manual(values = c("red", "blue"), labels = c("Trump", "Clinton"), name = "") +
       coord_cartesian(xlim = c(0, 5), ylim = c(0, 5))
   })
