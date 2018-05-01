@@ -1,13 +1,13 @@
 ---
-title: "Insert Title"
-author: "Insert Names"
+title: "How Fair Are Our Elections?"
+author: "Chase Williamson and Tiffany Wang"
 date: "Spring 2018"
 runtime: shiny
 urlcolor: blue
 ---
 
 ```{r setup, include=FALSE, warning = FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
 ## Final Project
@@ -24,6 +24,7 @@ library(plotly)
 library(ggplot2)
 library(ggthemes)
 library(shinythemes)
+library(ggmap)
 
 ```
 
@@ -71,7 +72,7 @@ election_results$Abbreviation[election_results$Abbreviation == "NE–a/l"] <- "N
 
 election_results <- election_results %>% 
   mutate(Clinton_Percent = as.numeric(sub("%", "", as.character(Clinton_Percent))), Trump_Percent = as.numeric(sub("%", "", as.character(Trump_Percent)))) %>%
-  mutate(Vote_Clinton = ifelse(Clinton_Percent - Trump_Percent > 0, "Yes", "No"))
+  mutate(Vote_Clinton = ifelse(Clinton_Percent - Trump_Percent > 0, "Clinton", "Trump"))
 
 ```
 
@@ -166,19 +167,17 @@ ggplot(plots, aes(x = Vote_Clinton, y = boundariesi)) +
 ```
 
 ```{r}
-#NEED TO BE CAREFUL ABOUT INTERPRETATION BECAUSE 2 ---> reverse coded
-ggplot(plots, aes(x = Vote_Clinton, y = citizens2)) +
+ggplot(plots, aes(x = Vote_Clinton, y = citizens)) +
   geom_boxplot() +
-  labs(x = "Who won the state?", y = "citizens2") +
+  labs(x = "Who won the state?", y = "How Much Did the State Restrict Citizens' Rights?") +
   theme_classic()
 ```
 
 ```{r}
-#NEED TO BE CAREFUL ABOUT INTERPRETATION BECAUSE 2 ---> reverse coded
 #Are there more illegal voters for Democrats?
-ggplot(plots, aes(x = Vote_Clinton, y = ineligible2)) +
+ggplot(plots, aes(x = Vote_Clinton, y = ineligible)) +
   geom_boxplot() +
-  labs(x = "Who won the state?", y = "ineligible2") +
+  labs(x = "Who won the state?", y = "How Likely Was It That Ineligible Voters Were Registered?") +
   theme_classic()
 ```
 
@@ -192,23 +191,34 @@ x_label <- data.frame(var = c("PEIIndexi", "lawsi", "proceduresi", "boundariesi"
                       
 y_label <- data.frame(var = c("PEIIndexi", "lawsi", "proceduresi", "boundariesi", "voteregi", "partyregi", "mediai", "financei", "votingi", "Pct_Felon_Disenfranchised"), names = c("Overall Election Integrity Index (Imputed)", "Legal Integrity Index (Imputed)", "Procedures Integrity Index (Imputed)", "Boundaries Integrity Index (Imputed)", "Voter Registration Integrity Index (Imputed)", "Party Registration Integrity Index (Imputed)", "Media Coverage Integrity Index (Imputed)", "Campaign Finance Integrity Index (Imputed)", "Voting Integrity Index (Imputed)", "Dienfranchised Felons (% of total eligible pop.)"))
 
+#Loading data for longitudes and latitudes of states for map
+states <- map_data("state")
+election_integrity_full <- election_integrity_full %>%
+  mutate(state = tolower(state))
+map <- inner_join(election_integrity_full, states, by = c("state" = "region"))
+map <- inner_join(map, election_results, by = c("stateabbr" = "Abbreviation"))
+
 
 all_quant <- all %>%
   select(stateabbr, Vote_Clinton, PEIIndexi, lawsi, proceduresi, boundariesi, voteregi, partyregi, mediai, financei, votingi, Pct_Felon_Disenfranchised) 
 
-all_qual <- all %>%
-  select(stateabbr, Vote_Clinton, lawsunfair2, favoredincumbent2, citizens2, managed, votinginfo, fairofficials, legalelections, bfavored2, oppprevent2, womenopp, minorityopp, leaderselect2, rallies2, newspapers, tv2, fairaccess, faircoverage, donations, rich2, violence2, fraudulent2, easy, choice, postal, expats, internet, rigged2, machinesaccurate, recordssecure, waited2, multiple2, regrestrictive2, popularwill, timely)
+all_qual <- map %>%
+  select(stateabbr, Vote_Clinton, lawsunfair, favoredincumbent, citizens, managed, votinginfo, fairofficials, legalelections, bfavored, oppprevent, womenopp, minorityopp, leaderselect, rallies, newspapers, tv, fairaccess, faircoverage, donations, rich, violence, fraudulent, easy, choice, postal, expats, internet, rigged, machinesaccurate, recordssecure, waited, multiple, regrestrictive, popularwill, timely, long, lat, group)
 
 
 ##### UI Side ######
-ui <- navbarPage(
-  shinythemes::themeSelector(),
+ui <- navbarPage("Looking Deeper into Election Integrity",
+  theme = shinythemes::shinytheme("sandstone"),
+  tabsetPanel(type = "tabs",
   tabPanel("Quantitative Variables",
+    fluidRow(
+      p("In order to calculate the overall election integrity index, The Electoral Integrity Project created a few subcategories that aggregated ratings the various experts gave for some topics. Below, you can explore the relationships between the subcategory scores and the overall index.")
+    ),
     plotlyOutput("quant"),
   
   hr(),
   fluidRow(
-    column(5,
+    column(6,
       selectInput("x", "X-Axis", 
                  c("Overall Election Integrity Index (Imputed)" = "PEIIndexi", 
                   "Legal Integrity Index (Imputed)" = "lawsi", 
@@ -233,47 +243,43 @@ ui <- navbarPage(
     ),
     column(2,
       checkboxGroupInput("candidate", "Candidate Chosen", 
-                         choices = list("Clinton" = "Yes", "Trump" = "No"),
+                         choices = list("Clinton", "Trump"),
                          selected = unique(all_quant$Vote_Clinton))
             ),
-    column(5,
+    column(4,
       selectInput("state", "What state do you want to see?",
                   choices = unique(all_quant$stateabbr))
            )
-  ),
-  
-  fluidRow(
-    h3("Variable Key")
   )
-),
+  ),
 
   tabPanel("Categorical Variables",
-    plotlyOutput("qual"),
+    plotOutput("qual"),
       
   hr(),
   
   fluidRow(
     column(5,
-      selectInput("x2", "X-Axis", names(all_qual)[3:34]),
-      selectInput("y2", "Y-Axis", names(all_qual)[3:34], names(all_qual)[4])
+      selectInput("var", "What Variable Do You Want to Look At?", 
+                  c("Laws are unfair" = "lawsunfair", "Incumbent is favored" = "favoredincumbent", "Citizens prevented from voting" = "citizens", "Elections well managed" = "managed", "Voting information widely available" = "votinginfo", "Officials were fair" = "fairofficials", "Elections followed the law" = "legalelections", "Boundaries favored incumbents" = "bfavored", "Opponent prevented from running" = "oppprevent", "Equal opportunities for women" = "womenopp", "Equal opportunities for minorities" = "minorityopp", "Top party leaders chose candidates" = "leaderselect", "Some candidates restricted from rallies" = "rallies", "Balanced newspaper coverage" = "newspapers", "TV favored governing party" = "tv", "Fair access to advertising" = "fairaccess", "Fair coverage of election" = "faircoverage", "Equal access to donations" = "donations", "Rich people buy elections" = "rich", "Some voters threatened at polls" = "violence", "Some fraudulent votes case" = "fraudulent", "Voting process was easy" = "easy", "Genuine choice at ballot box" = "choice", "Postal ballots available" = "postal", "Citizens abroad could vote" = "expats", "Internet voting available" = "internet", "Election was rigged" = "rigged", "Voting machines were accurate" = "machinesaccurate", "Voting records are secure" = "recordssecure", "People waited more than 30 min in line to vote" = "waited", "Some people voted more than once" = "multiple", "Registration deadlines too restrictive" = "regrestrictive", "Outcome reflected popular will" = "popularwill", "Ballots counted in timely fashion" = "timely"))
     ),
+    
     column(2,
       checkboxGroupInput("candidate2", "Candidate Chosen", 
-                         choices = list("Clinton" = "Yes", "Trump" = "No"),
+                         choices = list("Clinton", "Trump"),
                          selected = unique(all_qual$Vote_Clinton))
             ),
+    
     column(5,
-      selectInput("state2", "What state do you want to see?",
-                  choices = unique(all_qual$stateabbr))
-           )
+           p("Click the button to create a map!"),
+           actionButton("action", "Update"))
   ),
   
   fluidRow(
-    h3("Variable Key"),
-  p(tags$b("Note:"), "For all these variables, experts were asked to rate the various states on a scale of 1-5 based on various statements, with 1 being strongly agree and 5 being strongly disagree, which is why we called them categorical. However, all the experts' ratings were averaged, allowing them to be plotted as quantitative.")
+  p(tags$b("Note:"), "For all these variables, experts were asked to rate the various states on a scale of 1-5 based on various statements, with 1 being strongly disagree and 5 being strongly agree, which is why we called them categorical. However, all the experts' ratings were averaged, allowing them to be plotted as quantitative.")
   )
   )
-)
+))
 
 ##### Server Side #####
 server <- function(input, output) {
@@ -297,23 +303,30 @@ server <- function(input, output) {
     ggplot(all_reactive, aes(color = Vote_Clinton, "State" = stateabbr)) +
       geom_point(alpha =.80, aes_string(x = input$x, y = input$y)) +
       geom_text(data = state_reactive, mapping = aes_string(x = input$x, y = input$y), label = input$state) +
-      scale_color_manual(values = c("firebrick3", "royalblue2"), breaks = c("Trump", "Clinton"), name = "") +
+      scale_color_manual(values = c("royalblue2", "firebrick3"), breaks = c("Trump", "Clinton"), name = "") +
       theme_classic() +
       labs(x = as.character(xlab_var_name()[1,1]), y = as.character(ylab_var_name()[1,1])) +
       theme(legend.position = c(.80,.85), legend.box.background = element_rect()) + 
       coord_cartesian(xlim = c(0, 100), ylim = c(0, 100))
   })
   
-    output$qual <- renderPlotly({
-    req(input$candidate2)
-    reactive_all <- filter(all_qual, Vote_Clinton %in% input$candidate2)
-    reactive_state <- filter(all_qual, stateabbr %in% input$state2)
-    ggplot(reactive_all, aes(color = Vote_Clinton, "State" = stateabbr)) +
-      geom_point(alpha =.80, aes_string(x = input$x2, y = input$y2)) +
-      geom_text(data = reactive_state, mapping = aes_string(x = input$x2, y = input$y2), label = input$state2) + 
-      scale_color_manual(values = c("firebrick3", "royalblue2"), labels = c("Trump", "Clinton"), name = "") +
-      theme_classic() + 
-      coord_cartesian(xlim = c(0, 5), ylim = c(0, 5))
+    output$qual <- renderPlot({
+    qual_reactive <- eventReactive(input$action,
+                            {select(all_qual,
+                                    stateabbr, long, lat, Vote_Clinton, group, input$var)
+                              filter(all_qual, 
+                                     Vote_Clinton %in% input$candidate2)
+      })
+    ggplot(data = qual_reactive()) + 
+    geom_polygon(aes(x = long, 
+                     y = lat, 
+                     group = group, 
+                     fill = qual_reactive()[ ,6]), 
+                     color = "white") + 
+  scale_fill_gradient(high = "#E32F12", low = "#FBF0EE") +
+  labs(fill = "Score") +
+  coord_map() + 
+  theme_void()
   })
 }
 
