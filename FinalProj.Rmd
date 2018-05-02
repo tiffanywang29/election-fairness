@@ -314,14 +314,13 @@ server <- function(input, output) {
     qual_reactive <- eventReactive(input$action,
                             {select(all_qual,
                                     stateabbr, long, lat, Vote_Clinton, group, input$var)
-                              filter(all_qual, 
-                                     Vote_Clinton %in% input$candidate2)
+                              filter(all_qual, Vote_Clinton == input$candidate2)
       })
     ggplot(data = qual_reactive()) + 
-    geom_polygon(aes(x = long, 
-                     y = lat, 
-                     group = group, 
-                     fill = qual_reactive()[ ,6]), 
+    geom_polygon(aes_string(x = "long", 
+                     y = "lat", 
+                     group = "group", 
+                     fill = input$var), 
                      color = "white") + 
   scale_fill_gradient(high = "#E32F12", low = "#FBF0EE") +
   labs(fill = "Score") +
