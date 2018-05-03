@@ -181,6 +181,13 @@ ggplot(plots, aes(x = Vote_Clinton, y = ineligible)) +
   theme_classic()
 ```
 
+```{r}
+#Overall conclusion of the experts?
+ggplot(plots, aes(x = Vote_Clinton, y = PEIIndexi)) +
+  geom_boxplot() +
+  labs(x = "Who won the state?", y = "PEI Index Value") +
+  theme_classic()
+```
 
 ```{r}
 #Shiny app
@@ -271,7 +278,7 @@ ui <- navbarPage("Looking Deeper into Election Integrity",
             ),
     
     column(5,
-           p("Click the button to create a map!"),
+           p("Click the button to update the candidate!"),
            actionButton("action", "Update"))
   ),
   
