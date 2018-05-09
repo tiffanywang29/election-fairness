@@ -4,13 +4,18 @@ author: "Chase Williamson and Tiffany Wang"
 date: "Spring 2018"
 runtime: shiny
 urlcolor: blue
+output:
+  html_document:
+    code_folding: show
 ---
 
 ```{r setup, include=FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
-## Final Project
+The 2016 election was fraught with allegations of illegal voters, Russian interference, and gerrymandering. While the United States has been considered a model democracy at times, this view seems highly questionable at times especially given the vast differences in election integrity across states. As we head toward the 2018 midterm elections, the safety and integrity of our election system has been a topic of serious debate. Democrats and Republicans are making differing claims about what is the real problem, so we thought it would be helpful to take a deeper dive into whether or not there is validity in any of these claims by looking at electoral integrity across states. We will use the 2016 presidential election results to question whether various structural factors could have affected who won the election. 
+
+We first load all of the libraries that we will use in the course of our analysis. 
 
 ```{r}
 #Load libraries
@@ -28,8 +33,12 @@ library(ggmap)
 
 ```
 
+## Data Wrangling
 
-We only keep variables relevant to the state and that are not missing for any states.
+To carry out our analysis, we use three datasets: an [election integrity dataset](https://dataverse.harvard.edu/file.xhtml?fileId=2965376&version=RELEASED&version=) created through a collaboration between Harvard University and Sydney University, a voter turnout dataset for the 2016 election, and a dataset containing the 2016 presidential election results.
+
+The election integrity dataset was constructed by surveying a number of experts about election integrity pertaining to the state that they had expertise. The questions fell into several broad categories: laws, boundaries, procedures, voter registration, the voting process, media, and campaign finance. Most question responses are coded from 1-5 where 1 is “Strongly Disagree” and 5 is “Strongly Agree” with the exception of questions that are reverse coded. The dataset contains one observation per state and each variable corresponds to a question that was asked and the value is the average of the experts’ responses. We clean the dataset by removing all variables where values are missing.
+
 
 ```{r}
 #Upload election integrity dataset
@@ -40,6 +49,7 @@ election_integrity <- election_integrity_full %>%
 
 ```
 
+We then use a [dataset](http://www.electproject.org/2016g) on voter turnout in 2016 from The United States Election Project. The variables of this dataset that are most pertinent to our analysis are voting age population, voting eligible population, and number of disenfranchised felons. From these variables, we are able to create new variables for the number of disenfranchised individuals obtained by subtracting voting eligible population from voting age population and percent disenfranchised felons obtained by dividing number of disenfranchised felons by the voting age population. These variables give us another perspective from which we can look at election integrity. 
 
 ```{r}
 #Upload voter turnout dataset
@@ -53,6 +63,8 @@ voter_turnout <- voter_turnout %>%
 
   
 ```
+
+We scrape [2016 election results](https://en.wikipedia.org/wiki/United_States_presidential_election,_2016) from the wikipedia page on the 2016 presidential election. We clean the table we obtained by scraping table of results by state from the Wikipedia page, and then we create a variable for which presidential candidate won the election in that state.
 
 ```{r}
 #Scrape election results dataset
@@ -76,12 +88,16 @@ election_results <- election_results %>%
 
 ```
 
-note inner_join, left_join, and right_join all do the same thing because we are matching 50 states + DC
+Note inner_join, left_join, and right_join all do the same thing because we are matching 50 states + DC
 ```{r}
 #Merge datasets
 integrity_turnout <- inner_join(election_integrity, voter_turnout, by = c("stateabbr" = "Abbreviation"))
 all <- inner_join(integrity_turnout, election_results, by = c("stateabbr" = "Abbreviation"))
 ```
+
+## PCA
+
+Since our dataset has a large number of variables that are most likely collinear (as they are all measuring election integrity, just in different ways), it makes sense for us to use principal components analysis (PCA). PCA is a dimension reduction technique that creates new variables that are orthogonal to each other and are linear combinations of the original variables. While the original dataset already contains an imputed index, we believe that this index might be too reductive and that multiple variables might be necessary to explain the variation in our original dataset. To use PCA it is necessary that all variables have no missing values, all variables use the same scale, and all variables are numeric predictors. In the data wrangling section, we removed all variables that had any missing values. We remove variables that are not on a scale from 0-5 as well as variables that are not predictors such as information about the experts. Next, we run PCA using the `pr_comp` command from base R. 
 
 ```{r}
 #Create a dataset for PCA. Note we only use variables on a scale from 0 to 5
@@ -90,7 +106,11 @@ pca_test <- all %>%
 
 #Run principle components
 prin_comp <- prcomp(pca_test, scale. = T)
+```
 
+We then look at the amount of variation in our original set of variables explained by the various principal components. In the first plot below, we show the cumulative variation explained by the principal components. In the second plot, we show the marginal variation explained by each principal component. It is important to note that after the first principal component there are not clear jumps in the amount of variation explained by each principal component, and so there is not an obvious break point. For this reason, we only use principal components that explain at least 5% of the variation in our original variables, and thus, we only use the first six principal components when building our predictive model. 
+
+```{r}
 #Create variables necessary to explain amount of variance explained by various principal components
 std_dev <- prin_comp$sdev
 pr_var <- std_dev^2
@@ -108,7 +128,11 @@ plot(prop_varex, xlab = "Principal Component",
 
 #Create a data frame with state, index, whether the state voted for Trump or Clinton, and the principal components
 all_with_pca <- data.frame(state = all$stateabbr, index = all$PEIIndexi, clinton = all$Vote_Clinton, prin_comp$x) 
+```
 
+We plot the first principal component against the imputed election integrity index and, as can be seen, there is a strong linear relationship between the two. This is a really interesting finding and leads us to believe that the original authors most likely used a dimension reduction technique such as PCA when creating the imputed electoral index. It is also important to note that the blue points, states which voted for Clinton, tend to be clustered together with higher index values (more electoral integrity) and states that voted for Trump are clustered at lower index values (less electoral integrity). Next, we plot our first principal component against the second to see if there is clear clustering when we look at more than one dimension. From the plot, there are no clear trends or groupings.
+
+```{r}
 #Plot PC1 against index variable
 ggplot(all_with_pca, aes(x= index, y=PC1)) +
   geom_point(aes(col = clinton)) + 
@@ -123,7 +147,11 @@ ggplot(all_with_pca, aes(x= PC2, y=PC1, color = as.factor(clinton))) +
   scale_color_manual(labels = c("Trump", "Clinton"), values = c("firebrick3", "royalblue2"), name = "Who Won the State?") +
   theme_classic() +
   theme(legend.position = c(.17,.80), legend.box.background = element_rect())
+```
 
+We create two predictive models where we try to predict the 2016 election outcome using different composite measures of electoral integrity. Both models are logistic regressions using cross-validation with n-folds. The difference between the two is predictors used. In the first logit model, we simply use the imputed election integrity index variable as our only predictor. In the second logit model, we use the first six principal components as predictors. If there were no relationship between election integrity and whether the Trump or Clinton won the state in 2016, then we would expect of an accuracy rate of around 50% for both models. We find that the model using only the election integrity index was able to predict the winner of the election 76% of the time, whereas the model using the principal components was able to predict the correct winner 74.5% of the time. Thus, we conclude the principal components analysis did not add any useful information to the model. It is, however, quite concerning that we were able to predict the outcome of the election in three fourths of states using election integrity as our only predictor. 
+
+```{r}
 #Set cross validation options
 cv_opts <- trainControl(method = "cv", number = 51)
 
@@ -141,7 +169,10 @@ log_model1
 log_model2
 ```
 
-From the PCA, we saw that it was possible for the PEIIndex to predict the outcome of an election. We wanted to test this out on a real life case study, and what better election to use than the highly contentious 2016 presidential election! Democrats frequently argue that Republicans pass laws to disenfranchise voters more likely to vote Democrat, giving them a greater chance that they'll win more elections. In this next section we will try to use the results the 2016 presidential election to gauge how much weight, if any, this argument has.
+## Static Plots
+
+In the previous section, we showed that it was possible to predict the outcome of the 2016 presidential election with around 75% accuracy using only the election integrity dataset. Democrats frequently argue that Republicans pass laws to disenfranchise voters more likely to vote Democrat, giving them a greater chance that they'll win more elections. In this next section we will try to use the results from the 2016 presidential election to gauge how much weight, if any, this argument has based on various aspects of election integrity.
+
 ```{r}
 #Creating a dataset with all the variables from election_integrity that couldn't be used for PCA because of missing values.
 plots <- left_join(election_integrity_full, all)
@@ -152,12 +183,20 @@ ggplot(plots, aes(x = Pct_Felon_Disenfranchised, y = PEIIndexi, color = Vote_Cli
   scale_color_manual(labels = c("Trump", "Clinton"), values = c("firebrick3", "royalblue2"), name = "Who Won the State?") +
   theme_classic() +
   theme(legend.position = c(.85,.80), legend.box.background = element_rect())
+```
 
+Here, we use the `Pct_Felons_Disenfranchised` variable we created earlier as a proxy for election integrity since one part of the argument Democrats often make is that Republican states are preventing felons from voting simply because they are more likely to vote Democrat. We plotted it against the `PEIIndexi` variable to see if there was indeed a relationship between felon disenfranchisement and election integrity as well as if it occurred more often in Republican states. From the plot, there seems to be very little relation between the election integrity index and felon disenfranchisement percentage and that there isn’t necessarily a clear separation between Republican and Democratic states. It is important to remember that there are many other laws in place currently that prevent people from going to the polls, whether that be voter ID laws and lack of early voting opportunities.
+
+```{r}
 ggplot(plots, aes(x = Vote_Clinton, y = Pct_Felon_Disenfranchised)) +
   geom_boxplot()+
   labs(x = "Who won the state?", y = "Dienfranchised Felons (% of total eligible pop.)") +
   theme_classic()
 ```
+
+Though from the plot there did not seem to be a clear distinction in felon disenfranchisement between Republican and Democratic states, this boxplot tells a different story. The median percent of felons disenfranchised in states that Trump won is higher than the values of more than 75% of the states that Clinton won. While the first plot did not indicate that these numbers contributed heavily towards the election integrity index, it does seem worrisome that there is a disparity among felons who can vote simply based on the political leanings of the state they live in.
+
+Looking more specifically into the various criteria that went into creating the election integrity index, we decided to look at gerrymandering and boundary-drawing. In the plot below, we used the `boundairesi` variable, which aggregated the questions asked of experts regarding boundaries, which 1 being the most unfair and 100 being the most fair. 
 
 ```{r}
 ggplot(plots, aes(x = Vote_Clinton, y = boundariesi)) + 
@@ -166,12 +205,16 @@ ggplot(plots, aes(x = Vote_Clinton, y = boundariesi)) +
   theme_classic()
 ```
 
+Again, there is a discrepancy in boundary integrity between states that Trump won and states that Clinton won. More than half of states that Clinton won had better boundaries than 75% of states that Trump won, which again, can make quite a big difference in the makeup of state and federal legislatures. Similarly, we looked at voter disenfranchisement based on the experts’ rating system rather than solely felons disenfranchised. Here, we compared responses to the statement “election laws restricted citizens’ rights,” with 1 being strongly disagree and 5 being strongly agree.  This plot tells a similar story to the last plot: states that voted for Trump seem to do worse on measures of electoral integrity than states that voted for Clinton.
+
 ```{r}
 ggplot(plots, aes(x = Vote_Clinton, y = citizens)) +
   geom_boxplot() +
   labs(x = "Who won the state?", y = "How Much Did the State Restrict Citizens' Rights?") +
   theme_classic()
 ```
+
+Finally, we wanted to explore the claim that Trump frequently makes - that Hillary Clinton only won the popular vote because there were millions of illegal voters. We used the `ineligible` variable to measure this, measuring the likelihood that some ineligible electors were registered. From the plot, we see very little difference between the two groups, with slightly higher agreement with the statement in states that Trump won. 
 
 ```{r}
 #Are there more illegal voters for Democrats?
@@ -181,6 +224,8 @@ ggplot(plots, aes(x = Vote_Clinton, y = ineligible)) +
   theme_classic()
 ```
 
+Finally, in agreement with the findings of the previous plots, the overall election integrity index is indeed higher in states that Clinton won. As we saw before, since there’s a possibility in predicting elections based on electoral integrity, this disparity between more Democratic-leaning and Republican-leaning states is worrisome.
+
 ```{r}
 #Overall conclusion of the experts?
 ggplot(plots, aes(x = Vote_Clinton, y = PEIIndexi)) +
@@ -189,10 +234,11 @@ ggplot(plots, aes(x = Vote_Clinton, y = PEIIndexi)) +
   theme_classic()
 ```
 
+## Shiny App
+
+There are many more variables in the election integrity dataset than the ones we chose to highlight in our boxplots, so we created an app using [Shiny](http://shiny.rstudio.com) for you to explore the interactions between the variables. We separated the variables into two visuals based on the scale used (1 to 100 versus 1 to 5) just to avoid visual confusion. You can view the app on a full screen [here](http://shiny.swarthmore.edu:3838/twang2/App/).
+
 ```{r}
-#Shiny app
-
-
 #Nice Labels
 x_label <- data.frame(var = c("PEIIndexi", "lawsi", "proceduresi", "boundariesi", "voteregi", "partyregi", "mediai", "financei", "votingi", "Pct_Felon_Disenfranchised"), names = c("Overall Election Integrity Index (Imputed)", "Legal Integrity Index (Imputed)", "Procedures Integrity Index (Imputed)", "Boundaries Integrity Index (Imputed)", "Voter Registration Integrity Index (Imputed)", "Party Registration Integrity Index (Imputed)", "Media Coverage Integrity Index (Imputed)", "Campaign Finance Integrity Index (Imputed)", "Voting Integrity Index (Imputed)", "Dienfranchised Felons (% of total eligible pop.)"))
                       
@@ -339,7 +385,6 @@ server <- function(input, output) {
 shinyApp(ui, server)
 ```
 
+## Conclusion
 
-
-
-
+While none of the relationships we looked at can officially validate the stories put forth by either Democrats or Republicans, we found that there were many trends between various measures of electoral integrity and the results of the 2016 election. We were specifically concerned by the predictive power of the index of electoral integrity and the various trends that could be observed by looking at variables that measured integrity with respect to borders within states. In a world where we hope our elections have perfect integrity, our data highlights something more alarming than imperfect elections. We observe clear trends between political parties within states and election integrity. While we cannot claim causality, the fact that there is any relationship is sufficiently alarming.
